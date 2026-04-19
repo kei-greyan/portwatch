@@ -1,66 +1,55 @@
+// Package config handles loading, saving, validating, and migrating
+// portwatch configuration from a TOML file.
 package config
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"time"
 )
 
-// Default values.
-const (
-	DefaultInterval  = 30 * time.Second
-	DefaultStatePath = "/var/lib/portwatch/state.json"
-)
+// CurrentVersion is the schema version produced by this release.
+const CurrentVersion = 1
 
-// Config holds runtime configuration for portwatch.
+// Config holds all portwatch runtime configuration.
 type Config struct {
-	// Interval between port scans.
-	Interval time.Duration `json:"interval"`
-
-	// StatePath is the file used to persist port state across restarts.
-	StatePath string `json:"state_path"`
-
-	// AlertWebhook is an optional URL to POST alerts to.
-	AlertWebhook string `json:"alert_webhook,omitempty"`
-
-	// IgnorePorts lists ports that should never trigger alerts.
-	IgnorePorts []uint16 `json:"ignore_ports,omitempty"`
+	Version      int           `json:"version"`
+	Interval     time.Duration `json:"interval"`
+	StatePath    string        `json:"state_path"`
+	IgnoredPorts []string      `json:"ignored_ports"`
 }
 
-// Load reads a JSON config file from path. Missing file returns defaults.
-func Load(path string) (*Config, error) {
-	cfg := defaults()
+func defaults() *Config {
+	return &Config{
+		Version:      CurrentVersion,
+		Interval:     30 * time.Second,
+		StatePath:    "/var/lib/portwatch/state.json",
+		IgnoredPorts: []string{},
+	}
+}
 
-	f, err := os.Open(path)
-	if os.IsNotExist(err) {
-		return cfg, nil
+// Load reads config from path, returning defaults when the file is absent.
+func Load(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return defaults(), nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
-	if err := json.NewDecoder(f).Decode(cfg); err != nil {
+	cfg := defaults()
+	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil
 }
 
-// Save writes the config as JSON to path.
+// Save writes cfg to path as JSON.
 func Save(path string, cfg *Config) error {
-	f, err := os.Create(path)
+	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	return enc.Encode(cfg)
-}
-
-func defaults() *Config {
-	return &Config{
-		Interval:  DefaultInterval,
-		StatePath: DefaultStatePath,
-	}
+	return os.WriteFile(path, data, 0o644)
 }
