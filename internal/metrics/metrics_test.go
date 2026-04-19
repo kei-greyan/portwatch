@@ -35,6 +35,20 @@ func TestRecordScan_IncrementsCounter(t *testing.T) {
 	}
 }
 
+func TestRecordScan_LastScanAt_UpdatesOnEachCall(t *testing.T) {
+	m := metrics.New()
+	m.RecordScan(1)
+	s1 := m.Snapshot()
+
+	time.Sleep(time.Millisecond)
+	m.RecordScan(2)
+	s2 := m.Snapshot()
+
+	if !s2.LastScanAt.After(s1.LastScanAt) {
+		t.Errorf("expected LastScanAt to advance: first=%v second=%v", s1.LastScanAt, s2.LastScanAt)
+	}
+}
+
 func TestRecordAlert_IncrementsCounter(t *testing.T) {
 	m := metrics.New()
 	m.RecordAlert()
