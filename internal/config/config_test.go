@@ -77,3 +77,20 @@ func TestSave_PersistsAndLoads(t *testing.T) {
 		t.Errorf("mismatch:\n got  %s\n want %s", data2, data1)
 	}
 }
+
+func TestLoad_ReturnsDefaultsForZeroInterval(t *testing.T) {
+	// A config file that explicitly sets interval to 0 should fall back to
+	// the default interval so that the watcher never runs with no delay.
+	p := tmpPath(t)
+	raw := `{"interval": 0, "state_path": "/tmp/state.json"}`
+	if err := os.WriteFile(p, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Interval != config.DefaultInterval {
+		t.Errorf("expected default interval for zero value, got %v", cfg.Interval)
+	}
+}
