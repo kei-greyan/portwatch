@@ -43,3 +43,20 @@ func (r *Reporter) Write(w io.Writer) error {
 	}
 	return tw.Flush()
 }
+
+// WriteJSON formats the current snapshot as a simple JSON object to w.
+func (r *Reporter) WriteJSON(w io.Writer) error {
+	s := r.m.Snapshot()
+
+	uptime := time.Since(s.UptimeStart).Truncate(time.Second)
+	lastScan := "null"
+	if !s.LastScanAt.IsZero() {
+		lastScan = `"` + s.LastScanAt.Format(time.RFC3339) + `"`
+	}
+
+	_, err := fmt.Fprintf(w,
+		`{"uptime":%q,"scans_total":%d,"alerts_total":%d,"ports_open":%d,"last_scan_at":%s}\n`,
+		uptime.String(), s.ScansTotal, s.AlertsTotal, s.PortsOpen, lastScan,
+	)
+	return err
+}
