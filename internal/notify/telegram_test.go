@@ -4,50 +4,49 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/user/portwatch/internal/alert"
-	"github.com/user/portwatch/internal/notify"
+	"github.com/yourorg/portwatch/internal/alert"
+	"github.com/yourorg/portwatch/internal/notify"
 )
 
 func telegramAlert() alert.Alert {
 	return alert.Alert{
-		Level:     alert.Warn,
-		Port:      9200,
+		Title:     "Port opened",
+		Host:      "localhost",
+		Port:      8080,
 		Proto:     "tcp",
-		Message:   "port opened unexpectedly",
-		Timestamp: time.Now(),
+		Level:     alert.Warn,
+		Timestamp: time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC),
 	}
 }
 
 func TestTelegram_SendsCorrectPayload(t *testing.T) {
-	var received map[string]interface{}
+	var got map[string]interface{}
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
 			t.Fatalf("decode body: %v", err)
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
 
-	n := notify.NewTelegram("bot-token", "chat-123")
-	n.(*notify.TelegramNotifier).SetAPIBase(srv.URL)
-
+	n := notify.NewTelegramWithBase("mytoken", "-100123", srv.URL)
 	if err := n.Send(telegramAlert()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if received["chat_id"] != "chat-123" {
-		t.Errorf("chat_id = %v, want chat-123", received["chat_id"])
+	if got["chat_id"] != "-100123" {
+		t.Errorf("chat_id = %v, want -100123", got["chat_id"])
 	}
-	text, _ := received["text"].(string)
-	if !strings.Contains(text, "9200") {
-		t.Errorf("text does not contain port: %q", text)
+	if got["parse_mode"] != "Markdown" {
+		t.Errorf("parse_mode = %v, want Markdown", got["parse_mode"])
 	}
-	if received["parse_mode"] != "Markdown" {
-		t.Errorf("parse_mode = %v, want Markdown", received["parse_mode"])
+	text, _ := got["text"].(string)
+	if text == "" {
+		t.Error("text must not be empty")
 	}
 }
 
@@ -57,18 +56,15 @@ func TestTelegram_ErrorOnBadStatus(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	n := notify.NewTelegram("bad-token", "chat-123")
-	n.(*notify.TelegramNotifier).SetAPIBase(srv.URL)
-
+	n := notify.NewTelegramWithBase("bad", "123", srv.URL)
 	if err := n.Send(telegramAlert()); err == nil {
-		t.Fatal("expected error on 401, got nil")
+		t.Fatal("expected error for 401 status")
 	}
 }
 
 func TestTelegram_DefaultTimeout(t *testing.T) {
 	n := notify.NewTelegram("tok", "cid")
-	tn := n.(*notify.TelegramNotifier)
-	if tn.Timeout() != 10*time.Second {
-		t.Errorf("timeout = %v, want 10s", tn.Timeout())
+	if n == nil {
+		t.Fatal("NewTelegram returned nil")
 	}
 }

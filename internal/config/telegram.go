@@ -2,11 +2,11 @@ package config
 
 import "fmt"
 
-// TelegramConfig holds settings for the Telegram notifier.
+// TelegramConfig holds settings for the Telegram Bot notifier.
 type TelegramConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Token   string `yaml:"token"`
-	ChatID  string `yaml:"chat_id"`
+	Enabled bool   `toml:"enabled"`
+	Token   string `toml:"token"`
+	ChatID  string `toml:"chat_id"`
 }
 
 func defaultTelegramConfig() *TelegramConfig {
@@ -15,16 +15,18 @@ func defaultTelegramConfig() *TelegramConfig {
 	}
 }
 
-// ValidateTelegram returns an error if the Telegram configuration is invalid.
-// A nil or disabled config is always valid.
-func ValidateTelegram(c *TelegramConfig) error {
-	if c == nil || !c.Enabled {
+// ValidateTelegram returns an error if cfg is enabled but incomplete.
+func ValidateTelegram(cfg *TelegramConfig) error {
+	if cfg == nil {
 		return nil
 	}
-	if c.Token == "" {
+	if !cfg.Enabled {
+		return nil
+	}
+	if cfg.Token == "" {
 		return fmt.Errorf("telegram: token must not be empty")
 	}
-	if c.ChatID == "" {
+	if cfg.ChatID == "" {
 		return fmt.Errorf("telegram: chat_id must not be empty")
 	}
 	return nil

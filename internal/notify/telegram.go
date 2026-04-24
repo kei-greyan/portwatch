@@ -7,50 +7,58 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/user/portwatch/internal/alert"
+	"github.com/yourorg/portwatch/internal/alert"
 )
 
-const defaultTelegramTimeout = 10 * time.Second
+const telegramDefaultTimeout = 10 * time.Second
 
-// TelegramNotifier sends alerts to a Telegram chat via the Bot API.
-type TelegramNotifier struct {
+type telegramNotifier struct {
 	token   string
 	chatID  string
-	apiBase string
 	client  *http.Client
+	apiBase string
 }
 
-type telegramPayload struct {
+type telegramMessage struct {
 	ChatID    string `json:"chat_id"`
 	Text      string `json:"text"`
 	ParseMode string `json:"parse_mode"`
 }
 
-// NewTelegram creates a TelegramNotifier for the given bot token and chat ID.
-func NewTelegram(token, chatID string) *TelegramNotifier {
-	return &TelegramNotifier{
+// NewTelegram returns a Notifier that sends alerts via the Telegram Bot API.
+func NewTelegram(token, chatID string) Notifier {
+	return &telegramNotifier{
 		token:   token,
 		chatID:  chatID,
+		client:  &http.Client{Timeout: telegramDefaultTimeout},
 		apiBase: "https://api.telegram.org",
-		client:  &http.Client{Timeout: defaultTelegramTimeout},
 	}
 }
 
-// Send dispatches the alert as a Telegram message.
-func (t *TelegramNotifier) Send(a alert.Alert) error {
-	emoji := "ℹ️"
-	if a.Level == alert.Warn {
-		emoji = "⚠️"
+func (t *telegramNotifier) Send(a alert.Alert) error {
+	if a.Timestamp.IsZero() {
+		a.Timestamp = time.Now()
 	}
-	text := fmt.Sprintf("%s *%s* — port `%d` (%s)\n%s",
-		emoji, a.Level, a.Port, a.Proto, a.Message)
 
-	payload := telegramPayload{
+	emoji := "\u26a0\ufe0f"
+	if a.Level == alert.Info {
+		emoji = "\u2139\ufe0f"
+	}
+
+	text := fmt.Sprintf("%s *%s*\n`%s:%d/%s`\n%s",
+		emoji,
+		a.Title,
+		a.Host, a.Port, a.Proto,
+		a.Timestamp.UTC().Format(time.RFC3339),
+	)
+
+	msg := telegramMessage{
 		ChatID:    t.chatID,
 		Text:      text,
 		ParseMode: "Markdown",
 	}
-	body, err := json.Marshal(payload)
+
+	body, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("telegram: marshal: %w", err)
 	}
