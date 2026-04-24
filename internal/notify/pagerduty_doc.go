@@ -1,17 +1,7 @@
-// Package notify provides notifier implementations for dispatching alerts
-// to various destinations.
+// Package notify provides notification backends for portwatch alerts.
 //
-// # PagerDuty
-//
-// The PagerDuty notifier sends alerts using the PagerDuty Events API v2
-// (https://developer.pagerduty.com/docs/ZG9jOjExMDI5NTgw-send-an-alert-event).
-//
-// Usage:
-//
-//	pd := notify.NewPagerDuty("your-integration-routing-key")
-//	err := pd.Send(a)
-//
-// Warn-level alerts are mapped to PagerDuty severity "error" to trigger
-// an incident. Info-level alerts use severity "info" and will not page
-// on-call responders by default.
+// PagerDuty notifier sends alerts to the PagerDuty Events API v2.
+// It maps alert severity (warn → critical, info → info) to PagerDuty
+// severity levels and uses the port number as the dedup key so that
+// repeated alerts for the same port are deduplicated automatically.
 package notify
