@@ -55,3 +55,14 @@ func TestMigrate_FutureVersionReturnsError(t *testing.T) {
 		t.Fatal("expected error for future version")
 	}
 }
+
+func TestMigrate_V0AdvancesToCurrentVersion(t *testing.T) {
+	cfg := defaults()
+	cfg.Version = 0
+	if err := Migrate(cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Version != currentVersion {
+		t.Fatalf("expected version %d after full migration, got %d", currentVersion, cfg.Version)
+	}
+}
